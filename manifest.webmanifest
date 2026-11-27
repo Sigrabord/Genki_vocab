@@ -1,0 +1,17 @@
+{
+  "name": "genki.uchit — японский по учебнику Genki",
+  "short_name": "genki.uchit",
+  "description": "Словарь Genki 3: карточки, тесты, озвучка",
+  "lang": "ru",
+  "start_url": "./#/today",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f8fc",
+  "theme_color": "#2f5bd3",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

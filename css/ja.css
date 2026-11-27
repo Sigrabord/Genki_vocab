@@ -1,0 +1,16 @@
+[hidden]{display:none!important}
+.tabs{grid-template-columns:repeat(4,1fr)}
+.jp,.jw,.word.jp{font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic","Meiryo",var(--body),sans-serif}
+.jw{display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap}
+.jw .es{font-size:20px;font-weight:700}
+.jw .rd{color:var(--mut);font-size:14px}
+.word.big{font-size:44px}
+.rdbig{font-size:24px;color:var(--mut)}
+.sub{font-size:12.5px;color:var(--mut);padding:10px 0 2px;border-top:1px solid var(--line)}
+.sub:first-child{border-top:0}
+.hid .tr{filter:blur(7px);transition:filter .15s}
+.hid .word-row.open .tr{filter:none}
+.word-row .chip{align-self:flex-start;margin-top:2px}
+.opt.jp{font-size:20px}
+select.inp{appearance:auto}
+a.chip{text-decoration:none}
