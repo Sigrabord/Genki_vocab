@@ -1,6 +1,8 @@
-let voice=null;
+let voice=null,pref='';
 const ok=()=>'speechSynthesis' in window;
-function pick(){if(!ok())return;const vs=speechSynthesis.getVoices().filter(v=>/^ja/i.test(v.lang));voice=vs.find(v=>/kyoko|siri|google|haruka|nanami/i.test(v.name))||vs[0]||null}
+export const listVoices=()=>ok()?speechSynthesis.getVoices().filter(v=>/^ja/i.test(v.lang)):[];
+export function setVoice(uri){pref=uri||'';pick()}
+function pick(){if(!ok())return;const vs=listVoices();voice=vs.find(v=>pref&&v.voiceURI===pref)||vs.find(v=>/kyoko|siri|google|haruka|nanami/i.test(v.name))||vs[0]||null}
 if(ok()){pick();speechSynthesis.onvoiceschanged=pick}
 export const canSpeak=ok;
 export function say(w){

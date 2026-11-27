@@ -1,6 +1,6 @@
 import {S,save,grade,calc,isLearned,dayKey,streak,fmtIvl,replaceState,resetProgress} from './store.js';
 import {loadBase,lessons,words,byId,invalidate,written,CAT,GROUPS,catGroup} from './data.js';
-import {say,canSpeak} from './speech.js';
+import {say,canSpeak,listVoices,setVoice} from './speech.js';
 import {canon,matches,romajiToHira,toHira} from './kana.js';
 
 const $=s=>document.querySelector(s);
@@ -8,7 +8,6 @@ const view=$('#view'),title=$('#title'),back=$('#back'),toastEl=$('#toast');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const toast=m=>{toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>toastEl.classList.remove('show'),2200)};
-document.documentElement.dataset.style=S.set.style;
 
 let SES=null,lessonFilter='all',hideTr=false,query='';
 const spk=(w)=>{if(!say(w))toast('Озвучка не поддерживается в этом браузере')};
@@ -43,7 +42,7 @@ function route(){
   const p=(location.hash||'#/today').slice(2).split('/');const name=p[0]||'today';
   document.querySelectorAll('.tabs a').forEach(a=>a.classList.toggle('on',a.dataset.tab===name));
   back.hidden=!(p[1]);
-  const f={today,lessons:p[1]?lesson:lessonsView,review:p[1]==='run'?run:reviewView,my}[name]||today;
+  const f={today,lessons:p[1]?lesson:lessonsView,review:p[1]==='run'?run:reviewView,my,settings}[name]||today;
   f(p[1]);view.scrollTop=0;
 }
 addEventListener('hashchange',route);
@@ -207,22 +206,35 @@ function my(){
     <div class="field"><label>Английский (необязательно)</label><input class="inp" id="me" autocomplete="off"></div>
     <div class="field"><label>Тип</label><select class="inp" id="mc">${Object.entries(CAT).map(([k,v])=>`<option value="${k}" ${k==='n'?'selected':''}>${v}</option>`).join('')}</select></div>
     <button class="btn" data-act="addMy">Добавить</button></div>
-  ${S.my.length?`<div class="sec-title">Добавлено: ${S.my.length}</div><div class="c tight">${S.my.map(w=>`<div class="word-row"><div class="grow"><div class="jw jp"><span class="es">${esc(written(w))}</span>${w.j?`<span class="rd">${esc(w.k)}</span>`:''}</div><div class="ru">${esc(w.ru)}</div></div><button class="ic" data-act="delMy" data-id="${w.id}" aria-label="Удалить">✕</button></div>`).join('')}</div>`:''}
-  <div class="sec-title">Настройки</div>
-  <div class="c stack">
+  ${S.my.length?`<div class="sec-title">Добавлено: ${S.my.length}</div><div class="c tight">${S.my.map(w=>`<div class="word-row"><div class="grow"><div class="jw jp"><span class="es">${esc(written(w))}</span>${w.j?`<span class="rd">${esc(w.k)}</span>`:''}</div><div class="ru">${esc(w.ru)}</div></div><button class="ic" data-act="delMy" data-id="${w.id}" aria-label="Удалить">✕</button></div>`).join('')}</div>`:''}`;
+}
+
+/* ---------- Настройки ---------- */
+const STYLES=[['a','Сиеста','#d6372b',''],['b','Тетрадь','#2f5bd3',''],['c','Тёмная','#121212','#8ab4f8'],['d','Чёрно-жёлтая','#0d0d0d','#ffd000'],['e','Чёрно-красная','#0d0d0d','#e53935']];
+const THEME_COLOR={a:'#d6372b',b:'#2f5bd3',c:'#121212',d:'#0d0d0d',e:'#0d0d0d'};
+function applyStyle(){
+  document.documentElement.dataset.style=S.set.style;
+    document.querySelector('meta[name=theme-color]')?.setAttribute('content',THEME_COLOR[S.set.style]||'#2f5bd3');
+}
+function settings(){
+  title.textContent='Настройки';
+  const vs=listVoices();
+  view.innerHTML=`<div class="c stack"><b>Стиль</b><div class="styles">${STYLES.map(([k,t,bg,br])=>`<button data-act="style" data-k="${k}" class="${S.set.style===k?'on':''}"><span class="sw" style="background:${bg};${br?`border:2px solid ${br}`:''}"></span>${t}</button>`).join('')}</div></div>
+  <div class="c stack"><b>Обучение</b>
     <div class="field"><label>Новых слов в день</label><select class="inp" id="npd">${[5,10,15,20,30,50].map(n=>`<option ${S.set.newPerDay===n?'selected':''}>${n}</option>`).join('')}</select></div>
-    <div class="field"><label>Оформление</label><select class="inp" id="sty">${[['b','Светлая'],['a','Тёплая'],['c','Тёмная'],['d','Чёрно-жёлтая'],['e','Чёрно-красная']].map(([k,t])=>`<option value="${k}" ${S.set.style===k?'selected':''}>${t}</option>`).join('')}</select></div>
-    <label class="check"><input type="checkbox" id="spk" ${S.set.speak?'checked':''}><span>Озвучивать слово при показе ответа${canSpeak()?'':' (недоступно в этом браузере)'}</span></label></div>
-  <div class="sec-title">Резервная копия</div>
-  <div class="c stack"><div class="mut small">Прогресс хранится только в этом браузере. Сохраните копию, чтобы перенести его на другое устройство.</div>
+    <label class="check"><input type="checkbox" id="spk" ${S.set.speak?'checked':''}><span>Озвучивать слово при показе ответа</span></label></div>
+  <div class="c stack"><b>Озвучка</b>
+    ${vs.length?`<select class="inp" id="voice"><option value="">Автоматически</option>${vs.map(v=>`<option value="${esc(v.voiceURI)}" ${v.voiceURI===S.set.voice?'selected':''}>${esc(v.name)} (${esc(v.lang)})</option>`).join('')}</select><button class="btn ghost" data-act="testVoice">Проверить звук</button>`
+    :`<div class="mut small">${canSpeak()?'Японский голос не найден. На Android: Настройки → Специальные возможности → Синтез речи → установить японский язык.':'Озвучка не поддерживается в этом браузере.'}</div>`}</div>
+  <div class="c stack"><b>Резервная копия</b><div class="mut small">Прогресс хранится только в этом браузере. Сохраните копию, чтобы перенести его на другое устройство.</div>
     <div class="btns"><button class="btn ghost" data-act="export">Скачать копию</button><label class="btn ghost" style="cursor:pointer">Загрузить копию<input type="file" id="imp" accept="application/json" hidden></label></div>
     <button class="btn line" data-act="reset">Сбросить прогресс</button></div>`;
   $('#npd').onchange=e=>{S.set.newPerDay=+e.target.value;save()};
-  $('#sty').onchange=e=>{S.set.style=e.target.value;document.documentElement.dataset.style=e.target.value;save()};
   $('#spk').onchange=e=>{S.set.speak=e.target.checked;save()};
+  const v=$('#voice');if(v)v.onchange=e=>{S.set.voice=e.target.value;setVoice(S.set.voice);save()};
   $('#imp').onchange=async e=>{
     const f=e.target.files[0];if(!f)return;
-    try{const o=JSON.parse(await f.text());if(o.v!==1||typeof o.cards!=='object')throw 0;replaceState(o);invalidate();toast('Копия загружена');my()}catch(x){toast('Не удалось прочитать файл')}
+    try{const o=JSON.parse(await f.text());if(o.v!==1||typeof o.cards!=='object')throw 0;replaceState(o);invalidate();applyStyle();toast('Копия загружена');settings()}catch(x){toast('Не удалось прочитать файл')}
   };
 }
 
@@ -261,7 +273,9 @@ const ACT={
     const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));
     a.download='genki-uchit-'+dayKey()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   },
-  reset(){if(confirm('Сбросить весь прогресс повторений? Ваши слова сохранятся.')){resetProgress();toast('Прогресс сброшен');my()}}
+  style(el){S.set.style=el.dataset.k;save();applyStyle();settings()},
+  testVoice(){spk('こんにちは')},
+  reset(){if(confirm('Сбросить весь прогресс повторений? Ваши слова сохранятся.')){resetProgress();toast('Прогресс сброшен');settings()}}
 };
 view.addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');
@@ -271,5 +285,6 @@ view.addEventListener('click',e=>{
 });
 
 /* ---------- старт ---------- */
+setVoice(S.set.voice);applyStyle();
 loadBase().then(()=>{route()}).catch(e=>{view.innerHTML=`<div class="c">Не удалось загрузить словарь: ${esc(e.message)}</div>`});
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));

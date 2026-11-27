@@ -1,5 +1,5 @@
 [hidden]{display:none!important}
-.tabs{grid-template-columns:repeat(4,1fr)}
+.tabs{grid-template-columns:repeat(5,1fr)}
 .jp,.jw,.word.jp{font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic","Meiryo",var(--body),sans-serif}
 .jw{display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap}
 .jw .es{font-size:20px;font-weight:700}
