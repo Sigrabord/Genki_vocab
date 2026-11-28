@@ -25,7 +25,7 @@ export function grade(id,g){
   if(!c)c=S.cards[id]={ivl:0,ease:2.3,due:now,reps:0,lapses:0,d0:dayKey()};
   c.reps++;c.ease=n.ease;c.ivl=n.ivl;c.last=now;
   if(g===0){c.lapses++;c.due=now+10*60000}else c.due=now+n.ivl*DAY;
-  const e=S.days[dayKey()]||(S.days[dayKey()]={r:0,n:0});e.r++;if(isNew)e.n++;
+  const e=S.days[dayKey()]||(S.days[dayKey()]={r:0,n:0});e.r++;if(isNew){if(id.startsWith('my-'))e.m=(e.m||0)+1;else e.n++}
   save();return c;
 }
 // «выучено» — интервал не меньше 5 дней (3 верных ответа подряд в один день не считаются)

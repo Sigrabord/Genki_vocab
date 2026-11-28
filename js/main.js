@@ -14,14 +14,15 @@ const spk=(w)=>{if(!say(w))toast('Озвучка не поддерживаетс
 
 /* ---------- статистика ---------- */
 function stats(){
-  const W=words(),now=Date.now();let due=0,learned=0,learning=0;
-  for(const w of W){const c=S.cards[w.id];if(!c)continue;if(c.due<=now)due++;isLearned(c)?learned++:learning++}
-  const newToday=(S.days[dayKey()]||{}).n||0;
-  const pool=newPool().length;
-  const newLeft=Math.max(0,Math.min(pool,S.set.newPerDay-newToday));
-  return {due,learned,learning,total:W.length,pool,newLeft,newToday};
+  const now=Date.now(),W=words(),d=S.days[dayKey()]||{};
+  const calc=L=>{let due=0,learned=0,learning=0;for(const w of L){const c=S.cards[w.id];if(!c)continue;if(c.due<=now)due++;isLearned(c)?learned++:learning++}return {due,learned,learning,total:L.length}};
+  const g=calc(W.filter(w=>w.n>0)),o=calc(W.filter(w=>w.n===0));
+  g.pool=newPool().length;g.newLeft=Math.max(0,Math.min(g.pool,S.set.newPerDay-(d.n||0)));
+  o.pool=ownPool().length;o.newLeft=Math.max(0,Math.min(o.pool,S.set.newPerDay-(d.m||0)));
+  return {...g,own:o,newToday:d.n||0};
 }
-const newPool=()=>words().filter(w=>!S.cards[w.id]&&(w.n===0||S.active.includes(w.n)));
+const newPool=()=>words().filter(w=>w.n>0&&!S.cards[w.id]&&S.active.includes(w.n));
+const ownPool=()=>words().filter(w=>w.n===0&&!S.cards[w.id]);
 const status=w=>{const c=S.cards[w.id];return !c?['новое','']:isLearned(c)?['выучено','lvl0']:c.lapses>0&&c.ivl<2?['трудное','lvl2']:['учу','lvl1']};
 
 /* ---------- разметка ---------- */
@@ -55,11 +56,13 @@ function today(){
   const pct=st.total?Math.round(st.learned/st.total*100):0;
   view.innerHTML=`<div class="c hero stack"><div style="opacity:.85">К повторению сегодня</div><div class="big">${st.due}</div>
     <div>${st.newLeft?`+ ${st.newLeft} новых слов`:'Новых слов на сегодня нет'}</div>
-    <a class="btn" href="#/review">${st.due+st.newLeft?'Начать':'Выбрать режим'}</a></div>
+    <a class="btn" href="#/review" data-act="scopeDue">${st.due+st.newLeft?'Начать':'Выбрать режим'}</a></div>
     <div class="c stack"><div class="row"><b>Выучено</b><span>${st.learned} из ${st.total} (${pct}%)</span></div>
     <div class="bar"><i style="width:${pct}%"></i></div>
     <div class="row mut"><span>В изучении: ${st.learning}</span><span>Серия: ${streak()} дн.</span></div></div>
     <div class="c row"><span>Сегодня повторено</span><b>${d.r}</b></div>
+    ${S.my.length?`<div class="c stack"><div class="row"><b>Свой урок</b><span>выучено ${st.own.learned} из ${S.my.length}</span></div>
+    <a class="btn ghost" href="#/review" data-act="scopeOwn">Повторить: ${st.own.due} + ${st.own.newLeft} новых</a></div>`:''}
     <div class="sec-title">Уроки в изучении</div>
     <div class="c stack"><div class="btns">${S.active.slice().sort((a,b)=>a-b).map(n=>`<a class="chip on" href="#/lessons/${n}">Урок ${n}</a>`).join('')||'<span class="mut">Не выбрано</span>'}</div>
     <a class="btn ghost" href="#/lessons">Выбрать уроки</a></div>`;
@@ -83,21 +86,22 @@ function lessonsView(){
       return `<a class="c lesson" href="#/lessons/${l.n}"><div class="num">${l.n}</div>
       <div class="grow"><b>Урок ${l.n}</b> <span class="mut">${l.part}</span><div class="mut small">${l.words.length} слов · выучено ${done}</div><div class="bar" style="margin-top:6px"><i style="width:${pc}%"></i></div></div>
       ${S.active.includes(l.n)?'<span class="chip on">учу</span>':''}</a>`}).join('')+
-      (S.my.length?`<a class="c lesson" href="#/my"><div class="num">★</div><div class="grow"><b>Мои слова</b><div class="mut small">${S.my.length} слов</div></div></a>`:'');
+      (()=>{const O=words().filter(w=>w.n===0),dn=O.filter(w=>isLearned(S.cards[w.id])).length;
+        return `<a class="c lesson" href="#/lessons/my" style="margin-top:30px"><div class="num">★</div><div class="grow"><b>Свой урок</b><div class="mut small">${O.length?`${O.length} ваших слов · выучено ${dn}`:'Пока пусто — добавьте слова во вкладке «Мои слова»'}</div>${O.length?`<div class="bar" style="margin-top:6px"><i style="width:${Math.round(dn/O.length*100)}%"></i></div>`:''}</div></a>`})()
   };
   q.oninput=draw;draw();
 }
 function lesson(n){
-  n=+n;const L=lessons().find(l=>l.n===n);if(!L){location.hash='#/lessons';return}
-  title.textContent='Урок '+n;
+  const own=n==='my';n=own?0:+n;const L=own?{part:'Ваши слова'}:lessons().find(l=>l.n===n);if(!L){location.hash='#/lessons';return}
+  title.textContent=own?'Свой урок':'Урок '+n;
   const ws=words().filter(w=>w.n===n),list=lessonFilter==='all'?ws:ws.filter(w=>catGroup(w.c)===lessonFilter);
   const act=S.active.includes(n),done=ws.filter(w=>isLearned(S.cards[w.id])).length;
   view.innerHTML=`<div class="c stack"><div class="row"><span class="mut">${L.part} · ${ws.length} слов</span><span>выучено ${done}</span></div>
-    <div class="btns"><button class="btn ${act?'ghost':''}" data-act="toggleLesson" data-n="${n}">${act?'✓ В изучении':'Учить этот урок'}</button>
-    <a class="btn line" href="#/review" data-act="scopeLesson" data-n="${n}">Повторить урок</a></div></div>
+    <div class="btns">${own?`<a class="btn" href="#/my">+ Добавить слово</a>`:`<button class="btn ${act?'ghost':''}" data-act="toggleLesson" data-n="${n}">${act?'✓ В изучении':'Учить этот урок'}</button>`}
+    ${ws.length?`<a class="btn line" href="#/review" data-act="scopeLesson" data-n="${own?'my':n}">Повторить урок</a>`:''}</div></div>
     <div class="seg">${[['all','Все'],['n','Сущ.'],['v','Глаголы'],['o','Прочее']].map(([k,t])=>`<button class="${lessonFilter===k?'on':''}" data-act="filter" data-k="${k}">${t}</button>`).join('')}</div>
     <label class="check"><input type="checkbox" id="hide" ${hideTr?'checked':''}><span>Скрыть перевод (нажмите на слово, чтобы показать)</span></label>
-    <div class="${hideTr?'hid':''}" id="wl">${grouped(list)||'<div class="empty-note">Нет слов</div>'}</div>`;
+    <div class="${hideTr?'hid':''}" id="wl">${grouped(list)||`<div class="empty-note">${own?'Здесь будут слова, которые вы добавите сами. Они не смешиваются со словами Genki.':'Нет слов'}</div>`}</div>`;
   $('#hide').onchange=e=>{hideTr=e.target.checked;$('#wl').classList.toggle('hid',hideTr)};
 }
 
@@ -106,27 +110,28 @@ let scope='due',mode=S.set.mode;
 function reviewView(){
   title.textContent='Повторить';SES=null;
   const st=stats(),L=lessons();
-  const weak=words().filter(w=>{const c=S.cards[w.id];return c&&c.lapses>0&&!isLearned(c)}).length;
+  const weak=words().filter(w=>{const c=S.cards[w.id];return w.n>0&&c&&c.lapses>0&&!isLearned(c)}).length;
   view.innerHTML=`<div class="c stack"><div class="sec-title" style="margin:0">Режим</div>
     <div class="seg">${[['cards','Карточки'],['quiz','Тест'],['type','Писать'],['listen','На слух']].map(([k,t])=>`<button class="${mode===k?'on':''}" data-act="mode" data-k="${k}">${t}</button>`).join('')}</div>
     ${mode==='cards'||mode==='quiz'?`<div class="seg">${[['jr','Японский → русский'],['rj','Русский → японский']].map(([k,t])=>`<button class="${S.set.dir===k?'on':''}" data-act="dir" data-k="${k}">${t}</button>`).join('')}</div>`:''}
     <div class="mut small">${{cards:'Показать слово, вспомнить, оценить себя.',quiz:'Выбрать правильный вариант из четырёх.',type:'Увидеть перевод и набрать чтение: кана или ромадзи (neko, ねこ).',listen:'Прослушать слово и выбрать перевод.'}[mode]}</div></div>
     <div class="c stack"><div class="sec-title" style="margin:0">Что повторять</div>
     <select class="inp" id="sc">
-      <option value="due">По расписанию: ${st.due} к повторению + ${st.newLeft} новых</option>
+      <option value="due">По расписанию (Genki): ${st.due} к повторению + ${st.newLeft} новых</option>
       ${L.map(l=>`<option value="l${l.n}">Урок ${l.n} целиком (${l.words.length})</option>`).join('')}
-      <option value="weak">Трудные слова (${weak})</option>
-      <option value="my">Мои слова (${S.my.length})</option></select>
+      <option value="weak">Трудные слова Genki (${weak})</option>
+      <optgroup label="Свой урок (только ваши слова)"><option value="mydue">По расписанию: ${st.own.due} к повторению + ${st.own.newLeft} новых</option><option value="my">Весь свой урок (${S.my.length})</option></optgroup></select>
     <button class="btn" data-act="start">Начать</button></div>`;
   $('#sc').value=scope;$('#sc').onchange=e=>scope=e.target.value;
 }
 function buildQueue(){
-  const W=words(),now=Date.now();let q=[];
-  if(scope==='due'){
-    q=shuffle(W.filter(w=>{const c=S.cards[w.id];return c&&c.due<=now})).concat(newPool().slice(0,stats().newLeft));
-  }else if(scope[0]==='l')q=shuffle(W.filter(w=>w.n===+scope.slice(1)));
-  else if(scope==='weak')q=shuffle(W.filter(w=>{const c=S.cards[w.id];return c&&c.lapses>0&&!isLearned(c)}));
-  else q=shuffle(W.filter(w=>w.n===0));
+  const W=words(),now=Date.now(),isDue=w=>{const c=S.cards[w.id];return c&&c.due<=now};
+  let q=[];
+  if(scope==='due')q=shuffle(W.filter(w=>w.n>0&&isDue(w))).concat(newPool().slice(0,stats().newLeft));
+  else if(scope==='mydue')q=shuffle(W.filter(w=>w.n===0&&isDue(w))).concat(ownPool().slice(0,stats().own.newLeft));
+  else if(scope==='my')q=shuffle(W.filter(w=>w.n===0));
+  else if(scope[0]==='l')q=shuffle(W.filter(w=>w.n===+scope.slice(1)));
+  else q=shuffle(W.filter(w=>{const c=S.cards[w.id];return w.n>0&&c&&c.lapses>0&&!isLearned(c)}));
   return q.map(w=>w.id);
 }
 
@@ -134,14 +139,16 @@ function buildQueue(){
 function startSession(){
   const q=buildQueue();
   if(!q.length){toast('Нечего повторять — выберите другой набор');return}
+  const own=scope==='my'||scope==='mydue';
+  if(own&&(mode==='quiz'||mode==='listen')&&S.my.length<2){toast('Для теста и аудирования нужно минимум 2 своих слова');return}
   S.set.mode=mode;save();
-  SES={q,i:0,ok:0,no:0,mode,dir:S.set.dir,redo:{},total:q.length,flip:false,locked:false};
+  SES={own,q,i:0,ok:0,no:0,mode,dir:S.set.dir,redo:{},total:q.length,flip:false,locked:false};
   location.hash='#/review/run';
 }
 function pickOptions(w,dir){
   const g=catGroup(w.c),key=x=>dir==='jr'?x.ru:written(x);
-  let pool=words().filter(x=>x.id!==w.id&&key(x)!==key(w)&&catGroup(x.c)===g);
-  if(pool.length<3)pool=words().filter(x=>x.id!==w.id&&key(x)!==key(w));
+  const base=words().filter(x=>(SES.own?x.n===0:x.n>0)&&x.id!==w.id&&key(x)!==key(w));
+  let pool=base.filter(x=>catGroup(x.c)===g);if(pool.length<3)pool=base;
   const seen=new Set([key(w)]),opts=[];
   for(const x of shuffle(pool)){if(!seen.has(key(x))){seen.add(key(x));opts.push(x)}if(opts.length===3)break}
   return shuffle(opts.concat(w));
@@ -206,7 +213,7 @@ function my(){
     <div class="field"><label>Английский (необязательно)</label><input class="inp" id="me" autocomplete="off"></div>
     <div class="field"><label>Тип</label><select class="inp" id="mc">${Object.entries(CAT).map(([k,v])=>`<option value="${k}" ${k==='n'?'selected':''}>${v}</option>`).join('')}</select></div>
     <button class="btn" data-act="addMy">Добавить</button></div>
-  ${S.my.length?`<div class="sec-title">Добавлено: ${S.my.length}</div><div class="c tight">${S.my.map(w=>`<div class="word-row"><div class="grow"><div class="jw jp"><span class="es">${esc(written(w))}</span>${w.j?`<span class="rd">${esc(w.k)}</span>`:''}</div><div class="ru">${esc(w.ru)}</div></div><button class="ic" data-act="delMy" data-id="${w.id}" aria-label="Удалить">✕</button></div>`).join('')}</div>`:''}`;
+  ${S.my.length?`<div class="sec-title">Свой урок · ${S.my.length} слов</div><div class="c tight">${S.my.map(w=>`<div class="word-row"><div class="grow"><div class="jw jp"><span class="es">${esc(written(w))}</span>${w.j?`<span class="rd">${esc(w.k)}</span>`:''}</div><div class="ru">${esc(w.ru)}</div></div><button class="ic" data-act="delMy" data-id="${w.id}" aria-label="Удалить">✕</button></div>`).join('')}</div>`:''}`;
 }
 
 /* ---------- Настройки ---------- */
@@ -238,11 +245,26 @@ function settings(){
   };
 }
 
+const isKana=t=>/^[\u3040-\u30ffー〜・\s/]+$/.test(t);
+// точный дубль: то же чтение и то же написание; похожий: то же чтение, но у одного из слов нет кандзи
+function findDup(j,k){
+  const rk=k.split('/').map(canon).filter(Boolean);let soft=null;
+  for(const w of words()){
+    const wk=w.k.split('/').map(canon);
+    if(!rk.some(x=>wk.includes(x)))continue;
+    if((j||'')===(w.j||''))return {w,exact:true};
+    if(!j||!w.j)soft=soft||w;
+  }
+  return soft?{w:soft,exact:false}:null;
+}
+
 /* ---------- действия ---------- */
 const ACT={
   say(el){spk(byId(el.dataset.id))},
   toggleLesson(el){const n=+el.dataset.n,i=S.active.indexOf(n);i<0?S.active.push(n):S.active.splice(i,1);save();lesson(n)},
-  scopeLesson(el){scope='l'+el.dataset.n},
+  scopeLesson(el){scope=el.dataset.n==='my'?'my':'l'+el.dataset.n},
+  scopeDue(){scope='due'},
+  scopeOwn(){scope='mydue'},
   filter(el){lessonFilter=el.dataset.k;lesson(location.hash.split('/')[2])},
   mode(el){mode=el.dataset.k;reviewView()},
   dir(el){S.set.dir=el.dataset.k;save();reviewView()},
@@ -263,10 +285,16 @@ const ACT={
   addMy(){
     const j=$('#mj').value.trim(),kIn=$('#mk').value.trim(),ru=$('#mr').value.trim();
     if(!ru||!(j||kIn)){toast('Нужны слово и перевод');return}
-    let k=kIn||j;if(/[a-z]/i.test(k))k=romajiToHira(k);
-    const kana=/^[\u3040-\u30ff・ー〜\s/]+$/.test(j);
-    S.my.push({id:'my-'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),j:kana&&!kIn?'':j===k?'':j,k:kana&&!kIn?j:k,ru,en:$('#me').value.trim(),c:$('#mc').value});
-    save();invalidate();toast('Добавлено');my();
+    let k=(kIn||j).trim();if(/[a-z]/i.test(k))k=romajiToHira(k);
+    let jj=j;if(!j||(isKana(j)&&(!kIn||canon(kIn)===canon(j)))){if(j&&isKana(j))k=j;jj=''}
+    const d=findDup(jj,k);
+    if(d){
+      const w=d.w,where=w.n?`урок ${w.n}`:'Свой урок',what=`${written(w)}${w.j?` (${w.k})`:''} — ${w.ru}`;
+      if(d.exact){toast(`Такое слово уже есть: ${what} · ${where}`);return}
+      if(!confirm(`Похожее слово уже есть: ${what} · ${where}.\nВсё равно добавить?`))return;
+    }
+    S.my.push({id:'my-'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),j:jj,k,ru,en:$('#me').value.trim(),c:$('#mc').value});
+    save();invalidate();toast('Добавлено в «Свой урок»');my();
   },
   delMy(el){if(!confirm('Удалить слово?'))return;S.my=S.my.filter(w=>w.id!==el.dataset.id);delete S.cards[el.dataset.id];save();invalidate();my()},
   export(){

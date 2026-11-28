@@ -1,5 +1,5 @@
 // Офлайн-режим: сначала сеть, при её отсутствии — кэш. Меняйте VERSION при обновлении файлов.
-const VERSION='genki-v2';
+const VERSION='genki-v4';
 const SHELL=['./','index.html','css/app.css','css/ja.css','js/main.js','js/store.js','js/data.js','js/kana.js','js/speech.js','textbook/genki.json','manifest.webmanifest','icons/icon-192.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(VERSION).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VERSION).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
